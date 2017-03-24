@@ -66,12 +66,12 @@ abstract class Playback(var source: String, var mimeType: String? = null, val op
     }
 
     override fun render(): UIObject {
-        if (options.containsKey(ClapprOption.START_AT.value)) {
+        if (options.extraOptions.containsKey(ClapprOption.START_AT.value)) {
             once(Event.READY.value, Callback.wrap {
-                (options.get(ClapprOption.START_AT.value) as? Int)?.let {
+                (options.extraOptions.get(ClapprOption.START_AT.value) as? Int)?.let {
                     seek(it)
                 }
-                options.remove(ClapprOption.START_AT.value)
+                options.extraOptions.remove(ClapprOption.START_AT.value)
             })
         }
 

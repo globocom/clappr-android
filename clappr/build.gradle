@@ -60,6 +60,7 @@ android {
     }
     productFlavors {
     }
+
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
         test.java.srcDirs += 'src/test/kotlin'
@@ -106,4 +107,13 @@ dokka {
         url = "https://github.com/clappr/clappr-android/tree/dev/clappr/src/main/kotlin"
         suffix = "#L"
     }
+}
+
+task dokkaJavadoc(type: org.jetbrains.dokka.gradle.DokkaTask) {
+    includes = ['clappr.md']
+
+    outputFormat = 'javadoc'
+    outputDirectory = "$buildDir/dokka/javadoc"
+
+    sourceDirs = files('src/main/kotlin')
 }
