@@ -3,7 +3,9 @@
 
     <string name="app_name">Clappr</string>
     <string name="title_activity_player">Clappr</string>
-    <string name="hello_world">Hello world!</string>
-    <string name="action_settings">Settings</string>
+    <string name="url_hint">Enter media URL</string>
+    <string name="play_button">Play</string>
+    <string name="default_url">http://clappr.io/highline.mp4</string>
+    <string name="error_dialog_title">Error</string>
 
 </resources>

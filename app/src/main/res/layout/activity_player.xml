@@ -1,8 +1,51 @@
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="io.clappr.player.app.PlayerActivity"
-    tools:ignore="MergeRootFrame" >
-</FrameLayout>
+    tools:ignore="MergeRootFrame"
+    android:orientation="vertical">
+
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="0">
+
+        <EditText
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:inputType="textUri"
+            android:ems="10"
+            android:id="@+id/url_text"
+            android:layout_weight="1"
+            android:hint="@string/url_hint"
+            android:text="@string/default_url" />
+
+        <Button
+            android:text="@string/play_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/play_button"
+            android:layout_weight="0"
+            android:onClick="playMedia" />
+
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/container"
+        android:layout_weight="1">
+
+    </FrameLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/player_state"
+        android:layout_weight="0"/>
+
+</LinearLayout>
+

@@ -7,20 +7,11 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowApplication;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-
 import io.clappr.player.base.BaseObject;
 import io.clappr.player.base.Options;
-import io.clappr.player.components.Playback;
-import io.clappr.player.playback.ExoPlayerPlayback;
-import io.clappr.player.plugin.Loader;
-import io.clappr.player.plugin.Plugin;
-import kotlin.reflect.KClass;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
-import static junit.framework.Assert.assertTrue;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(constants = BuildConfig.class, sdk = 23)
