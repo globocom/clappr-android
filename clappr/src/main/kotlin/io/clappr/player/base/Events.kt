@@ -36,6 +36,10 @@ enum class Event(val value: String) {
      */
     DID_SEEK("didSeek"),
     /**
+     * Complete changed to media position
+     */
+    COMPLETE_SEEK("completeSeek"),
+    /**
      * Media source changed
      */
     DID_CHANGE_SOURCE("didChangeSource"),
