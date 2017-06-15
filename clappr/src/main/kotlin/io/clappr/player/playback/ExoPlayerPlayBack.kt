@@ -319,8 +319,12 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
         trackSelector?.currentMappedTrackInfo?.let {
             (0..it.length - 1).forEachIndexed { index, _ ->
                 when (player?.getRendererType(index)) {
-                    C.TRACK_TYPE_AUDIO -> setUpOptions(index, it, MediaOptionType.AUDIO)
-                    C.TRACK_TYPE_TEXT -> setUpOptions(index, it, MediaOptionType.SUBTITLE)
+                    C.TRACK_TYPE_AUDIO -> {
+                        setUpOptions(index, it, MediaOptionType.AUDIO)
+                    }
+                    C.TRACK_TYPE_TEXT -> {
+                        setUpOptions(index, it, MediaOptionType.SUBTITLE)
+                    }
                 }
             }
         }
@@ -340,12 +344,12 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
             }
 
             addAvailableMediaOption(mediaOption)
+
             selectedDefaultMediaOption(renderedIndex, format, mediaOption)
         }
 
-        if (mediaOptionType == MediaOptionType.SUBTITLE && selectedMediaOption(MediaOptionType.SUBTITLE) == null) {
+        if (mediaOptionType == MediaOptionType.SUBTITLE && selectedMediaOption(MediaOptionType.SUBTITLE) == null)
             setSelectedMediaOption(SUBTITLE_OFF)
-        }
     }
 
     private fun selectedDefaultMediaOption(renderedAudioIndex: Int, format: Format, mediaOption: MediaOption) {
@@ -400,11 +404,10 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
     }
 
     private fun setMediaOption(mediaOption: MediaOption, mappedTrackInfo: MappingTrackSelector.MappedTrackInfo) {
-        if (mediaOption == SUBTITLE_OFF) {
+        if (mediaOption == SUBTITLE_OFF)
             subtitleOff?.let { setMediaOptionOnPlayback(it, mappedTrackInfo) }
-        } else {
+        else
             setMediaOptionOnPlayback(mediaOption, mappedTrackInfo)
-        }
     }
 
     private fun setMediaOptionOnPlayback(mediaOption: MediaOption, mappedTrackInfo: MappingTrackSelector.MappedTrackInfo) {
