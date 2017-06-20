@@ -21,7 +21,6 @@ import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 import io.clappr.player.base.*
 import io.clappr.player.components.*
-import io.clappr.player.log.Logger
 import io.clappr.player.periodicTimer.PeriodicTimeElapsedHandler
 import java.io.IOException
 import java.util.*
@@ -57,6 +56,14 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
 
     private val drmLicenseUrl = "https://proxy.uat.widevine.com/proxy?provider=widevine_test"
     private val drmEventsListeners = ExoplayerDrmEventsListeners()
+    private val drmScheme: UUID?
+        get() =
+        when (options[ClapprOption.DRM_SCHEME.value]) {
+            ClapprOption.DrmScheme.WIDEVINE -> C.WIDEVINE_UUID
+            ClapprOption.DrmScheme.PLAYREADY -> C.PLAYREADY_UUID
+            ClapprOption.DrmScheme.CLEARKEY -> C.CLEARKEY_UUID
+            else -> null
+        }
 
     private val bufferPercentage: Double
         get() = player?.bufferedPercentage?.toDouble() ?: 0.0
@@ -165,11 +172,7 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
     }
 
     private fun setupPlayer() {
-        val drmSessionManager = buildDrmSessionManager(C.WIDEVINE_UUID, drmLicenseUrl)
-
-        val rendererFactory = DefaultRenderersFactory(context,
-                drmSessionManager, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
-
+        val rendererFactory = setUpRendererFactory()
         trackSelector = DefaultTrackSelector(AdaptiveTrackSelection.Factory(bandwidthMeter))
 
         player = ExoPlayerFactory.newSimpleInstance(rendererFactory, trackSelector)
@@ -177,6 +180,16 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
         player?.addListener(eventsListener)
         playerView.player = player
         player?.prepare(mediaSource(Uri.parse(source)))
+    }
+
+    private fun setUpRendererFactory(): DefaultRenderersFactory {
+        val drmSessionManager: DrmSessionManager<FrameworkMediaCrypto>? = drmScheme?.let {
+            buildDrmSessionManager(drmScheme, drmLicenseUrl)
+        }
+
+        val rendererFactory = DefaultRenderersFactory(context,
+                drmSessionManager, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+        return rendererFactory
     }
 
     private fun buildDrmSessionManager(uuid: UUID?, licenseUrl: String): DrmSessionManager<FrameworkMediaCrypto>? {
