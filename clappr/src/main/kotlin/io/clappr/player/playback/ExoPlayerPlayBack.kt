@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import com.google.android.exoplayer2.*
+import com.google.android.exoplayer2.drm.*
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
 import com.google.android.exoplayer2.source.*
 import com.google.android.exoplayer2.source.dash.DashMediaSource
@@ -16,11 +17,14 @@ import com.google.android.exoplayer2.ui.SimpleExoPlayerView
 import com.google.android.exoplayer2.upstream.DataSpec
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 import io.clappr.player.base.*
 import io.clappr.player.components.*
+import io.clappr.player.log.Logger
 import io.clappr.player.periodicTimer.PeriodicTimeElapsedHandler
 import java.io.IOException
+import java.util.*
 
 open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: Options = Options()) : Playback(source, mimeType, options) {
     companion object : PlaybackSupportInterface {
@@ -50,6 +54,9 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
     private val trackGroupIndexKey = "trackGroupIndexKey"
     private val formatIndexKey = "formatIndexKey"
     private var subtitleOff: MediaOption? = null
+
+    private val drmLicenseUrl = "https://proxy.uat.widevine.com/proxy?provider=widevine_test"
+    private val drmEventsListeners = ExoplayerDrmEventsListeners()
 
     private val bufferPercentage: Double
         get() = player?.bufferedPercentage?.toDouble() ?: 0.0
@@ -158,13 +165,30 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
     }
 
     private fun setupPlayer() {
-        val videoTrackSelectionFactory = AdaptiveTrackSelection.Factory(bandwidthMeter)
-        trackSelector = DefaultTrackSelector(videoTrackSelectionFactory)
-        player = ExoPlayerFactory.newSimpleInstance(context, trackSelector)
+        val drmSessionManager = buildDrmSessionManager(C.WIDEVINE_UUID, drmLicenseUrl)
+
+        val rendererFactory = DefaultRenderersFactory(context,
+                drmSessionManager, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+
+        trackSelector = DefaultTrackSelector(AdaptiveTrackSelection.Factory(bandwidthMeter))
+
+        player = ExoPlayerFactory.newSimpleInstance(rendererFactory, trackSelector)
         player?.playWhenReady = false
         player?.addListener(eventsListener)
         playerView.player = player
         player?.prepare(mediaSource(Uri.parse(source)))
+    }
+
+    private fun buildDrmSessionManager(uuid: UUID?, licenseUrl: String): DrmSessionManager<FrameworkMediaCrypto>? {
+        if (Util.SDK_INT < 18) {
+            return null
+        }
+
+        val defaultHttpDataSourceFactory = DefaultHttpDataSourceFactory(Util.getUserAgent(context, "Clappr"), bandwidthMeter)
+
+        val drmMediaCallback = HttpMediaDrmCallback(licenseUrl, defaultHttpDataSourceFactory)
+
+        return DefaultDrmSessionManager(uuid, FrameworkMediaDrm.newInstance(uuid), drmMediaCallback, null, mainHandler, drmEventsListeners)
     }
 
     private fun checkPeriodicUpdates() {
@@ -259,59 +283,6 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
         val message = error?.message ?: "Exoplayer Error"
         bundle.putParcelable(Event.ERROR.value, ErrorInfo(message, ErrorCode.PLAYBACK_ERROR))
         trigger(Event.ERROR.value, bundle)
-    }
-
-    inner class ExoplayerEventsListener : AdaptiveMediaSourceEventListener, ExtractorMediaSource.EventListener, ExoPlayer.EventListener {
-        override fun onLoadError(error: IOException?) {
-            handleError(error)
-        }
-
-        override fun onLoadError(dataSpec: DataSpec?, dataType: Int, trackType: Int, trackFormat: Format?, trackSelectionReason: Int, trackSelectionData: Any?, mediaStartTimeMs: Long, mediaEndTimeMs: Long, elapsedRealtimeMs: Long, loadDurationMs: Long, bytesLoaded: Long, error: IOException?, wasCanceled: Boolean) {
-            handleError(error)
-        }
-
-        override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
-            updateState(playWhenReady, playbackState)
-        }
-
-        override fun onPlayerError(error: ExoPlaybackException?) {
-            handleError(error)
-        }
-
-        override fun onLoadingChanged(isLoading: Boolean) {
-            if (isLoading && currentState == State.NONE) {
-                currentState = State.IDLE
-                trigger(Event.READY.value)
-            }
-        }
-
-        override fun onPositionDiscontinuity() {
-        }
-
-        override fun onTimelineChanged(timeline: Timeline?, manifest: Any?) {
-        }
-
-        override fun onLoadStarted(dataSpec: DataSpec?, dataType: Int, trackType: Int, trackFormat: Format?, trackSelectionReason: Int, trackSelectionData: Any?, mediaStartTimeMs: Long, mediaEndTimeMs: Long, elapsedRealtimeMs: Long) {
-        }
-
-        override fun onDownstreamFormatChanged(trackType: Int, trackFormat: Format?, trackSelectionReason: Int, trackSelectionData: Any?, mediaTimeMs: Long) {
-        }
-
-        override fun onUpstreamDiscarded(trackType: Int, mediaStartTimeMs: Long, mediaEndTimeMs: Long) {
-        }
-
-        override fun onLoadCanceled(dataSpec: DataSpec?, dataType: Int, trackType: Int, trackFormat: Format?, trackSelectionReason: Int, trackSelectionData: Any?, mediaStartTimeMs: Long, mediaEndTimeMs: Long, elapsedRealtimeMs: Long, loadDurationMs: Long, bytesLoaded: Long) {
-        }
-
-        override fun onLoadCompleted(dataSpec: DataSpec?, dataType: Int, trackType: Int, trackFormat: Format?, trackSelectionReason: Int, trackSelectionData: Any?, mediaStartTimeMs: Long, mediaEndTimeMs: Long, elapsedRealtimeMs: Long, loadDurationMs: Long, bytesLoaded: Long) {
-        }
-
-        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters?) {
-        }
-
-        override fun onTracksChanged(trackGroups: TrackGroupArray?, trackSelections: TrackSelectionArray?) {
-
-        }
     }
 
     private fun setUpMediaOptions() {
@@ -439,5 +410,75 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
 
     private fun TrackGroup.forEachFormatIndexed(function: (index: Int, format: Format) -> Unit) {
         (0..(length - 1)).forEachIndexed { index, _ -> function(index, getFormat(index)) }
+    }
+
+    inner class ExoplayerEventsListener : AdaptiveMediaSourceEventListener, ExtractorMediaSource.EventListener, ExoPlayer.EventListener {
+
+        override fun onLoadError(error: IOException?) {
+            handleError(error)
+        }
+
+        override fun onLoadError(dataSpec: DataSpec?, dataType: Int, trackType: Int, trackFormat: Format?, trackSelectionReason: Int, trackSelectionData: Any?, mediaStartTimeMs: Long, mediaEndTimeMs: Long, elapsedRealtimeMs: Long, loadDurationMs: Long, bytesLoaded: Long, error: IOException?, wasCanceled: Boolean) {
+            handleError(error)
+        }
+
+        override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
+            updateState(playWhenReady, playbackState)
+        }
+
+        override fun onPlayerError(error: ExoPlaybackException?) {
+            handleError(error)
+        }
+
+        override fun onLoadingChanged(isLoading: Boolean) {
+            if (isLoading && currentState == State.NONE) {
+                currentState = State.IDLE
+                trigger(Event.READY.value)
+            }
+        }
+
+        override fun onPositionDiscontinuity() {
+        }
+
+        override fun onTimelineChanged(timeline: Timeline?, manifest: Any?) {
+        }
+
+        override fun onLoadStarted(dataSpec: DataSpec?, dataType: Int, trackType: Int, trackFormat: Format?, trackSelectionReason: Int, trackSelectionData: Any?, mediaStartTimeMs: Long, mediaEndTimeMs: Long, elapsedRealtimeMs: Long) {
+        }
+
+        override fun onDownstreamFormatChanged(trackType: Int, trackFormat: Format?, trackSelectionReason: Int, trackSelectionData: Any?, mediaTimeMs: Long) {
+        }
+
+        override fun onUpstreamDiscarded(trackType: Int, mediaStartTimeMs: Long, mediaEndTimeMs: Long) {
+        }
+
+        override fun onLoadCanceled(dataSpec: DataSpec?, dataType: Int, trackType: Int, trackFormat: Format?, trackSelectionReason: Int, trackSelectionData: Any?, mediaStartTimeMs: Long, mediaEndTimeMs: Long, elapsedRealtimeMs: Long, loadDurationMs: Long, bytesLoaded: Long) {
+        }
+
+        override fun onLoadCompleted(dataSpec: DataSpec?, dataType: Int, trackType: Int, trackFormat: Format?, trackSelectionReason: Int, trackSelectionData: Any?, mediaStartTimeMs: Long, mediaEndTimeMs: Long, elapsedRealtimeMs: Long, loadDurationMs: Long, bytesLoaded: Long) {
+        }
+
+        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters?) {
+        }
+
+        override fun onTracksChanged(trackGroups: TrackGroupArray?, trackSelections: TrackSelectionArray?) {
+
+        }
+    }
+
+    inner class ExoplayerDrmEventsListeners : DefaultDrmSessionManager.EventListener {
+        override fun onDrmKeysRestored() {
+        }
+
+        override fun onDrmKeysLoaded() {
+        }
+
+        override fun onDrmKeysRemoved() {
+        }
+
+        override fun onDrmSessionManagerError(error: java.lang.Exception?) {
+            handleError(error)
+        }
+
     }
 }
