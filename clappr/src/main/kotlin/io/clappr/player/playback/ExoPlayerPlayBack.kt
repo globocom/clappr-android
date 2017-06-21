@@ -56,14 +56,7 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
 
     private val drmLicenseUrl = "https://proxy.uat.widevine.com/proxy?provider=widevine_test"
     private val drmEventsListeners = ExoplayerDrmEventsListeners()
-    private val drmScheme: UUID?
-        get() =
-        when (options[ClapprOption.DRM_SCHEME.value]) {
-            ClapprOption.DrmScheme.WIDEVINE -> C.WIDEVINE_UUID
-            ClapprOption.DrmScheme.PLAYREADY -> C.PLAYREADY_UUID
-            ClapprOption.DrmScheme.CLEARKEY -> C.CLEARKEY_UUID
-            else -> null
-        }
+    private val drmScheme = C.WIDEVINE_UUID
 
     private val bufferPercentage: Double
         get() = player?.bufferedPercentage?.toDouble() ?: 0.0
@@ -183,9 +176,7 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
     }
 
     private fun setUpRendererFactory(): DefaultRenderersFactory {
-        val drmSessionManager: DrmSessionManager<FrameworkMediaCrypto>? = drmScheme?.let {
-            buildDrmSessionManager(drmScheme, drmLicenseUrl)
-        }
+        val drmSessionManager = buildDrmSessionManager(drmScheme, drmLicenseUrl)
 
         val rendererFactory = DefaultRenderersFactory(context,
                 drmSessionManager, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
@@ -197,7 +188,7 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
             return null
         }
 
-        val defaultHttpDataSourceFactory = DefaultHttpDataSourceFactory(Util.getUserAgent(context, "Clappr"), bandwidthMeter)
+        val defaultHttpDataSourceFactory = DefaultHttpDataSourceFactory(Util.getUserAgent(context, context?.packageName), bandwidthMeter)
 
         val drmMediaCallback = HttpMediaDrmCallback(licenseUrl, defaultHttpDataSourceFactory)
 

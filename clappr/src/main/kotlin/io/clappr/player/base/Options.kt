@@ -18,13 +18,5 @@ enum class ClapprOption(val value: String) {
     /**
      * Poster URL
      */
-    POSTER("poster"),
-    /**
-     * DRM Scheme Type
-     */
-    DRM_SCHEME("drmScheme");
-
-    enum class DrmScheme {
-        WIDEVINE, PLAYREADY, CLEARKEY
-    }
+    POSTER("poster")
 }
