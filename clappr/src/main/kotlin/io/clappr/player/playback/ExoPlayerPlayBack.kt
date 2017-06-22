@@ -54,7 +54,7 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
     private val formatIndexKey = "formatIndexKey"
     private var subtitleOff: MediaOption? = null
 
-    private val drmLicenseUrl = "https://proxy.uat.widevine.com/proxy?provider=widevine_test"
+    private val drmLicenseUrl = "https://drm.globovideos.com/widevine?deviceId=NmExZjhkODljZWE5YTZkZWQ3MTIzNmJhNzg3NQ=="
     private val drmEventsListeners = ExoplayerDrmEventsListeners()
     private val drmScheme = C.WIDEVINE_UUID
 
