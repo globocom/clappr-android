@@ -344,20 +344,20 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
 
     private fun createAudioMediaOption(format: Format, mediaInfo: Options): MediaOption? {
         return when (format.language) {
-            "und" -> MediaOption(MediaOptionType.Audio.ORIGINAL.value, MediaOptionType.AUDIO, format, mediaInfo)
-            "pt" -> MediaOption(MediaOptionType.Audio.PT_BR.value, MediaOptionType.AUDIO, format, mediaInfo)
-            null -> createAudioOffOption(format, mediaInfo)
-            else -> MediaOption(format.language, MediaOptionType.AUDIO, format, mediaInfo)
+            "und" -> MediaOption(MediaOptionType.Audio.ORIGINAL.value, MediaOptionType.AUDIO, mediaInfo, null)
+            "pt" -> MediaOption(MediaOptionType.Audio.PT_BR.value, MediaOptionType.AUDIO, mediaInfo, null)
+            null -> createAudioOffOption(mediaInfo)
+            else -> MediaOption(format.language, MediaOptionType.AUDIO, mediaInfo, null)
         }
     }
 
-    private fun createAudioOffOption(format: Format, mediaInfo: Options) = MediaOption("Original", MediaOptionType.AUDIO, format, mediaInfo)
+    private fun createAudioOffOption(mediaInfo: Options) = MediaOption("Original", MediaOptionType.AUDIO, mediaInfo, null)
 
     private fun createSubtitleMediaOption(format: Format, mediaInfo: Options): MediaOption {
         val mediaOption = when (format.language) {
-            "pt" -> MediaOption(MediaOptionType.Language.PT_BR.value, MediaOptionType.SUBTITLE, format, mediaInfo)
+            "pt" -> MediaOption(MediaOptionType.Language.PT_BR.value, MediaOptionType.SUBTITLE, mediaInfo, null)
             null -> createSubtitleOffOption(format, mediaInfo)
-            else -> MediaOption(format.language, MediaOptionType.SUBTITLE, format, mediaInfo)
+            else -> MediaOption(format.language, MediaOptionType.SUBTITLE, mediaInfo, null)
         }
 
         return mediaOption
@@ -372,7 +372,7 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
     }
 
     private fun createSubtitleOffOption(format: Format, mediaInfo: Options): MediaOption {
-        subtitleOff = MediaOption(SUBTITLE_OFF.name, MediaOptionType.SUBTITLE, format, mediaInfo)
+        subtitleOff = MediaOption(SUBTITLE_OFF.name, MediaOptionType.SUBTITLE, mediaInfo, null)
         return SUBTITLE_OFF
     }
 
@@ -392,7 +392,7 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
     }
 
     private fun setMediaOptionOnPlayback(mediaOption: MediaOption, mappedTrackInfo: MappingTrackSelector.MappedTrackInfo) {
-        mediaOption.info?.let {
+        (mediaOption.raw as? Options)?.let {
             val trackIndex = it[trackIndexKey] as? Int
             val trackGroupIndexKey = it[trackGroupIndexKey] as? Int
             val formatIndexKey = it[formatIndexKey] as? Int
