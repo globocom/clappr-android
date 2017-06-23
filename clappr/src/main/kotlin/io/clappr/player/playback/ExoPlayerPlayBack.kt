@@ -312,7 +312,7 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
 
     private fun setupAudioAndSubtitleOptions() {
         trackSelector?.currentMappedTrackInfo?.let {
-            (0..it.length - 1).forEachIndexed { index, _ ->
+            for (index in 0 until it.length) {
                 when (player?.getRendererType(index)) {
                     C.TRACK_TYPE_AUDIO -> setUpOptions(index, it) { format, mediaInfo ->
                         createAudioMediaOption(format, mediaInfo)
@@ -417,13 +417,15 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
 
     private fun MappingTrackSelector.MappedTrackInfo.forEachGroupIndexed(renderedTextIndex: Int, function: (index: Int, trackGroup: TrackGroup) -> Unit) {
         val trackGroup = getTrackGroups(renderedTextIndex)
-        (0..(trackGroup.length - 1)).forEachIndexed { index, _ ->
+        for (index in 0 until trackGroup.length) {
             function(index, trackGroup.get(index))
         }
     }
 
     private fun TrackGroup.forEachFormatIndexed(function: (index: Int, format: Format) -> Unit) {
-        (0..(length - 1)).forEachIndexed { index, _ -> function(index, getFormat(index)) }
+        for (index in 0 until length) {
+            function(index, getFormat(index))
+        }
     }
 
     inner class ExoplayerEventsListener : AdaptiveMediaSourceEventListener, ExtractorMediaSource.EventListener, ExoPlayer.EventListener {
