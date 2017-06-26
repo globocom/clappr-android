@@ -355,6 +355,7 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
         return when (format.language) {
             "und" -> MediaOption(MediaOptionType.Audio.ORIGINAL.value, MediaOptionType.AUDIO, mediaInfo, null)
             "pt" -> MediaOption(MediaOptionType.Audio.PT_BR.value, MediaOptionType.AUDIO, mediaInfo, null)
+            "en" -> MediaOption(MediaOptionType.Audio.EN.value, MediaOptionType.AUDIO, mediaInfo, null)
             null -> createAudioOffOption(mediaInfo)
             else -> MediaOption(format.language, MediaOptionType.AUDIO, mediaInfo, null)
         }
