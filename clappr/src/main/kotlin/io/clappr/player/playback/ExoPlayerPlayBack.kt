@@ -69,6 +69,13 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
         get() {
             return options.options[ClapprOption.DRM_LICENSE_URL.value] as? String
         }
+    private val isVideoLive: Boolean
+        get() {
+            (options.options[ClapprOption.VIDEO_TYPE.value] as? String)?.let {
+                return it.equals("live", ignoreCase = true)
+            }
+            return false
+        }
     private val subtitlesFromOptions = options.options[ClapprOption.SUBTITLES.value] as? HashMap<String, String>
 
     private val useSubtitleFromOptions = subtitlesFromOptions?.isNotEmpty() ?: false
@@ -83,7 +90,13 @@ open class ExoPlayerPlayback(source: String, mimeType: String? = null, options: 
         get() = SimpleExoPlayerView::class.java
 
     override val duration: Double
-        get() = player?.duration?.let { it.toDouble() / ONE_SECOND_IN_MILLIS } ?: Double.NaN
+        get() {
+            if (isVideoLive) {
+                return 0.0
+            } else {
+                return player?.duration?.let { it.toDouble() / ONE_SECOND_IN_MILLIS } ?: Double.NaN
+            }
+        }
 
     override val position: Double
         get() = player?.currentPosition?.let { it.toDouble() / ONE_SECOND_IN_MILLIS } ?: Double.NaN
