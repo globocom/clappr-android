@@ -62,7 +62,7 @@ open class MediaPlayerPlaybackTest {
         validMedia = ShadowMediaPlayer.MediaInfo(1000,0)
         ShadowMediaPlayer.addMediaInfo(DataSource.toDataSource("valid"), validMedia)
 
-        mediaPlayerPlayback = MediaPlayerPlayback(source = "valid", options = Options(autoPlay = false))
+        mediaPlayerPlayback = MediaPlayerPlayback(source = "valid", options = Options())
         createSurface(mediaPlayerPlayback)
         mediaPlayerPlayback.render()
     }
@@ -255,7 +255,7 @@ open class MediaPlayerPlaybackTest {
 
     @Test
     fun shouldHandleAutoplay() {
-        val mpp = MediaPlayerPlayback(source = "valid", options = Options(autoPlay = true))
+        val mpp = MediaPlayerPlayback(source = "valid", options = Options())
         createSurface(mpp)
         mpp.render()
 
