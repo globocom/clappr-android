@@ -24,6 +24,10 @@ enum class ClapprOption(val value: String) {
      */
     DRM_LICENSE_URL("drmLicenseUrl"),
     /**
+     * Inform the video type
+     */
+    VIDEO_TYPE("videoType"),
+    /**
      * Map from subtitles URL`s with name and URL to each one
      */
     SUBTITLES("subtitles")
