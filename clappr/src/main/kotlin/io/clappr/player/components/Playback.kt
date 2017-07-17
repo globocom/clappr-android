@@ -116,17 +116,15 @@ abstract class Playback(var source: String, var mimeType: String? = null, val op
     override fun render(): UIObject {
         if (options.containsKey(ClapprOption.START_AT.value)) {
             once(Event.READY.value, Callback.wrap {
-                (options.get(ClapprOption.START_AT.value) as? Int)?.let {
+                (options[ClapprOption.START_AT.value] as? Int)?.let {
                     seek(it)
                 }
                 options.remove(ClapprOption.START_AT.value)
             })
         }
 
-        if (options.autoPlay) {
-            if (!play()) {
-                once(Event.READY.value, Callback.wrap { play() })
-            }
+        if (!play()) {
+            once(Event.READY.value, Callback.wrap { play() })
         }
         return this
     }
