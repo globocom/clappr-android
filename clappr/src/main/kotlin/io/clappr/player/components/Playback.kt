@@ -122,6 +122,7 @@ abstract class Playback(var source: String, var mimeType: String? = null, val op
 
     open fun resetAvailableMediaOptions() {
         mediaOptionList.clear()
+        selectedMediaOptionList.clear()
     }
 
     fun convertSelectedMediaOptionsToJson(): String {
