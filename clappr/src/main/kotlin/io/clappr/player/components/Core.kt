@@ -71,6 +71,8 @@ class Core(val loader: Loader, val options: Options) : UIObject() {
         val container = Container(loader, options)
         containers.add(container)
         activeContainer = containers.first()
+
+        activeContainer?.playback?.resetAvailableMediaOptions()
     }
 
     fun destroy() {
