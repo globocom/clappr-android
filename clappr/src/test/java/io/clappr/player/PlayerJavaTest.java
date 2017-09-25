@@ -52,11 +52,6 @@ public class PlayerJavaTest {
         assertFalse("load enabled", player.load(""));
     }
 
-    @Test
-    public void shouldFail() {
-        assertFalse("shouldFail", true);
-    }
-
     @Ignore @Test
     public void shouldHaveInvalidStatesWithUnsupportedMedia() {
         player.configure(new Options());
