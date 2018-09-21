@@ -82,8 +82,4 @@ open class SettingButtonPlugin(core: Core) : ButtonPlugin(core) {
                 it.pause()
         }
     }
-
-    override fun render() {
-        super.render()
-    }
 }
