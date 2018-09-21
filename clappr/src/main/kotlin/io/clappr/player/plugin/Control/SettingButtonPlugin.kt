@@ -1,6 +1,5 @@
 package io.clappr.player.plugin.Control
 
-import android.support.annotation.Keep
 import io.clappr.player.R
 import io.clappr.player.base.Callback
 import io.clappr.player.base.Event
@@ -10,10 +9,8 @@ import io.clappr.player.components.Core
 import io.clappr.player.components.MediaOptionType
 import io.clappr.player.components.Playback
 
-@Keep
 open class SettingButtonPlugin(core: Core) : ButtonPlugin(core) {
 
-    @Keep
     companion object : NamedType {
         override val name = "settingButton"
     }
