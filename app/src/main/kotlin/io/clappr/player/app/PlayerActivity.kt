@@ -1,9 +1,9 @@
 package io.clappr.player.app
 
-import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Bundle
+import android.support.v7.app.AppCompatActivity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -19,7 +19,7 @@ import io.clappr.player.base.Options
 import io.clappr.player.log.Logger
 import io.clappr.player.plugin.Loader
 
-class PlayerActivity : Activity() {
+class PlayerActivity : AppCompatActivity() {
 
     private lateinit var player: Player
     private val playerContainer by lazy { findViewById<ViewGroup>(R.id.player_container) }
@@ -58,7 +58,7 @@ class PlayerActivity : Activity() {
             }
         }
 
-        val fragmentTransaction = fragmentManager.beginTransaction()
+        val fragmentTransaction = supportFragmentManager.beginTransaction()
         fragmentTransaction.add(R.id.player_container, player)
         fragmentTransaction.commit()
 
