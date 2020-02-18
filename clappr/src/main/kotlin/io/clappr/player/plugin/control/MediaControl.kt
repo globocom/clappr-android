@@ -22,6 +22,7 @@ import io.clappr.player.extensions.extractInputKey
 import io.clappr.player.extensions.unlessChromeless
 import io.clappr.player.plugin.Plugin.State
 import io.clappr.player.plugin.PluginEntry
+import io.clappr.player.plugin.UIPlugin
 import io.clappr.player.plugin.UIPlugin.Visibility
 import io.clappr.player.plugin.core.UICorePlugin
 
@@ -102,11 +103,16 @@ open class MediaControl(core: Core, pluginName: String = name) :
 
     override var state: State = State.ENABLED
         set(value) {
-            if (value == State.ENABLED)
+            if (value == State.ENABLED) {
+                setupPlaybackEvents()
                 view.visibility = View.VISIBLE
+                visibility = Visibility.VISIBLE
+            }
             else {
                 hide()
+                stopPlaybackListeners()
                 view.visibility = View.GONE
+                visibility = Visibility.HIDDEN
             }
             field = value
         }
@@ -151,6 +157,9 @@ open class MediaControl(core: Core, pluginName: String = name) :
         listenTo(core, InternalEvent.CLOSE_MODAL_PANEL.value) { closeModal() }
 
         listenTo(core, Event.DID_RECEIVE_INPUT_KEY.value) { onInputReceived(it) }
+        
+        listenTo(core, Event.DID_ENTER_PIP.value) { state = State.DISABLED }
+        listenTo(core, Event.DID_EXIT_PIP.value) { state = State.ENABLED }
     }
 
     open fun handleDidPauseEvent() {
@@ -202,6 +211,7 @@ open class MediaControl(core: Core, pluginName: String = name) :
                     InternalEvent.DISABLE_MEDIA_CONTROL.value
                 ) { state = State.DISABLED })
             containerListenerIds.add(listenTo(it, InternalEvent.WILL_LOAD_SOURCE.value) {
+                //TODO: Handle state when in PiP mode
                 state = State.ENABLED
                 hide()
             })

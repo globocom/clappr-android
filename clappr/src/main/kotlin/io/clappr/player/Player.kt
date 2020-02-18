@@ -1,12 +1,26 @@
 package io.clappr.player
 
+import android.app.PendingIntent
+import android.app.PictureInPictureParams
+import android.app.RemoteAction
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.graphics.drawable.Icon
+import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.annotation.DrawableRes
+import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
+import io.clappr.player.Player.PIPAction.*
+import io.clappr.player.Player.PIPAction.Companion.PIP_INTENT_ACTION
+import io.clappr.player.Player.PIPAction.Companion.PIP_INTENT_EXTRA
 import io.clappr.player.base.*
 import io.clappr.player.components.Core
 import io.clappr.player.components.Playback
@@ -15,6 +29,8 @@ import io.clappr.player.plugin.PlaybackConfig
 import io.clappr.player.plugin.PluginConfig
 import io.clappr.player.plugin.core.externalinput.ExternalInputDevice
 import io.clappr.player.plugin.core.externalinput.ExternalInputPlugin
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  *  Main Player class.
@@ -27,65 +43,6 @@ open class Player(
     private val playbackEventsToListen: MutableSet<String> = mutableSetOf(),
     private val containerEventsToListen: MutableSet<String> = mutableSetOf()
 ) : Fragment(), EventInterface by base {
-
-    companion object {
-        init {
-            PluginConfig.register()
-            PlaybackConfig.register()
-        }
-
-        /**
-         * Initialize Player for the application. This method need to be called before any Player instantiation.
-         */
-        @JvmStatic
-        fun initialize(applicationContext: Context) {
-            BaseObject.applicationContext = applicationContext
-        }
-    }
-
-    private val externalInputDevice: ExternalInputDevice?
-        get() = (core?.plugins?.firstOrNull { it.name == ExternalInputPlugin.name }) as? ExternalInputDevice
-
-    init {
-        Event.values().forEach { playbackEventsToListen.add(it.value) }
-        coreEventsToListen.addAll(
-            listOf(
-                Event.REQUEST_FULLSCREEN.value,
-                Event.EXIT_FULLSCREEN.value,
-                Event.MEDIA_OPTIONS_SELECTED.value
-            )
-        )
-    }
-
-    /**
-     * Player state
-     */
-    enum class State {
-        /**
-         * Player is uninitialized and not ready.
-         */
-        NONE,
-        /**
-         * Player is ready but no media is loaded.
-         */
-        IDLE,
-        /**
-         * Playing media.
-         */
-        PLAYING,
-        /**
-         * Media playback is paused.
-         */
-        PAUSED,
-        /**
-         * Media playback is stalling.
-         */
-        STALLING,
-        /**
-         * Player or Media error
-         */
-        ERROR
-    }
 
     protected var core: Core? = null
         private set(value) {
@@ -105,33 +62,25 @@ open class Player(
                 it.on(InternalEvent.WILL_CHANGE_ACTIVE_CONTAINER.value) { unbindContainerEvents() }
                 it.on(InternalEvent.DID_CHANGE_ACTIVE_CONTAINER.value) { bindContainerEvents() }
                 it.on(Event.REQUEST_FULLSCREEN.value) { bundle: Bundle? ->
-                    trigger(
-                        Event.REQUEST_FULLSCREEN.value,
-                        bundle
-                    )
+                    trigger(Event.REQUEST_FULLSCREEN.value, bundle)
                 }
-                it.on(Event.EXIT_FULLSCREEN.value) { bundle: Bundle? -> trigger(Event.EXIT_FULLSCREEN.value, bundle) }
+                it.on(Event.EXIT_FULLSCREEN.value) { bundle: Bundle? ->
+                    trigger(Event.EXIT_FULLSCREEN.value, bundle)
+                }
                 it.on(Event.MEDIA_OPTIONS_SELECTED.value) { bundle: Bundle? ->
-                    trigger(
-                        Event.MEDIA_OPTIONS_SELECTED.value,
-                        bundle
-                    )
+                    trigger(Event.MEDIA_OPTIONS_SELECTED.value, bundle)
                 }
-                it.on(Event.DID_SELECT_AUDIO.value) { bundle: Bundle? -> trigger(Event.DID_SELECT_AUDIO.value, bundle) }
+                it.on(Event.DID_SELECT_AUDIO.value) { bundle: Bundle? ->
+                    trigger(Event.DID_SELECT_AUDIO.value, bundle)
+                }
                 it.on(Event.DID_SELECT_SUBTITLE.value) { bundle: Bundle? ->
-                    trigger(
-                        Event.DID_SELECT_SUBTITLE.value,
-                        bundle
-                    )
+                    trigger(Event.DID_SELECT_SUBTITLE.value, bundle)
                 }
+                it.on(Event.DID_ENTER_PIP.value) { trigger(Event.DID_ENTER_PIP.value) }
+                it.on(Event.DID_EXIT_PIP.value) { trigger(Event.DID_EXIT_PIP.value) }
 
-                if (it.activeContainer != null) {
-                    bindContainerEvents()
-                }
-
-                if (it.activePlayback != null) {
-                    bindPlaybackEvents()
-                }
+                if (it.activeContainer != null) bindContainerEvents()
+                if (it.activePlayback != null) bindPlaybackEvents()
 
                 playerViewGroup?.addView(it.render().view)
             }
@@ -142,6 +91,7 @@ open class Player(
      */
     val position: Double
         get() = core?.activePlayback?.position ?: Double.NaN
+
     /**
      * Media duration in seconds.
      */
@@ -171,15 +121,36 @@ open class Player(
                 Playback.State.ERROR -> State.ERROR
             }
 
-    private val playbackEventsIds = mutableSetOf<String>()
 
-    private val containerEventsIds = mutableSetOf<String>()
-
-    private val coreEventsIds = mutableSetOf<String>()
-
+    private var remoteActionReceiver: PIPRemoteActionReceiver? = null
     private var playerViewGroup: ViewGroup? = null
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+    private val externalInputDevice: ExternalInputDevice?
+        get() = (core?.plugins?.firstOrNull { it.name == ExternalInputPlugin.name }) as? ExternalInputDevice
+
+    private val playbackEventsIds = mutableSetOf<String>()
+    private val containerEventsIds = mutableSetOf<String>()
+    private val coreEventsIds = mutableSetOf<String>()
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private val remoteActions: MutableMap<PIPAction, RemoteAction> = mutableMapOf()
+
+    init {
+        Event.values().forEach { playbackEventsToListen.add(it.value) }
+        coreEventsToListen.addAll(
+            listOf(
+                Event.REQUEST_FULLSCREEN.value,
+                Event.EXIT_FULLSCREEN.value,
+                Event.MEDIA_OPTIONS_SELECTED.value
+            )
+        )
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
         playerViewGroup = inflater.inflate(R.layout.player_fragment, container, false) as ViewGroup
         core?.let { playerViewGroup?.addView(it.render().view) }
         return (playerViewGroup as View)
@@ -188,6 +159,8 @@ open class Player(
     override fun onPause() {
         super.onPause()
         activity?.takeUnless { it.isRunningInAndroidTvDevice() }?.let {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && it.isInPictureInPictureMode) return
+
             val playerIsNotPaused = core?.activePlayback?.state != Playback.State.PAUSED
             if (playerIsNotPaused && !pause())
                 stop()
@@ -292,10 +265,11 @@ open class Player(
         core?.activePlayback?.let {
             playbackEventsToListen.mapTo(playbackEventsIds) { event ->
                 listenTo(it, event) { bundle: Bundle? ->
-                    trigger(
-                        event,
-                        bundle
-                    )
+                    trigger(event, bundle)
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && requireActivity().isInPictureInPictureMode) when (event) {
+                        Event.DID_STOP.value, Event.DID_COMPLETE.value, Event.PLAYING.value -> updatePIPParameters()
+                    }
                 }
             }
         }
@@ -309,10 +283,7 @@ open class Player(
     private fun bindContainerEvents() {
         core?.activeContainer?.let {
             containerEventsToListen.mapTo(containerEventsIds) { event ->
-                listenTo(
-                    it,
-                    event
-                ) { bundle: Bundle? -> trigger(event, bundle) }
+                listenTo(it, event) { bundle: Bundle? -> trigger(event, bundle) }
             }
         }
     }
@@ -325,12 +296,7 @@ open class Player(
     private fun bindCoreEvents() {
         core?.let {
             coreEventsToListen.mapTo(coreEventsIds) { event ->
-                listenTo(it, event) { bundle: Bundle? ->
-                    trigger(
-                        event,
-                        bundle
-                    )
-                }
+                listenTo(it, event) { bundle: Bundle? -> trigger(event, bundle) }
             }
         }
     }
@@ -341,10 +307,174 @@ open class Player(
     }
 
     private fun updateCoreFullScreenStatus() {
-        core?.fullscreenState = if (this.fullscreen) Core.FullscreenState.FULLSCREEN else Core.FullscreenState.EMBEDDED
+        core?.fullscreenState =
+            if (this.fullscreen) Core.FullscreenState.FULLSCREEN else Core.FullscreenState.EMBEDDED
     }
 
     fun holdKeyEvent(event: KeyEvent) {
         externalInputDevice?.holdKeyEvent(event)
+    }
+
+    /**
+     * Prepares Player to enter picture-in-picture mode and calls the corresponding method
+     * on the Activity.
+     *
+     * @return true if the system successfully entered picture-in-picture mode or was already in
+     * picture-in-picture mode. If the device does not support picture-in-picture, return false.
+     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun enterPictureInPictureMode(): Boolean =
+        if (isPIPSupported())
+            requireActivity().enterPictureInPictureMode(createPIPParameters())
+        else false
+
+    private fun isPIPSupported() =
+        requireActivity().packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun createPIPParameters(): PictureInPictureParams {
+        if (remoteActions.isEmpty()) createRemoteActions()
+        return PictureInPictureParams.Builder().setActions(
+            remoteActionsFor(state)
+        ).build()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun createRemoteActions() {
+        listOf(
+            PLAY to R.drawable.exo_controls_play,
+            PAUSE to R.drawable.exo_icon_pause,
+            REWIND to R.drawable.exo_icon_rewind,
+            FAST_FORWARD to R.drawable.exo_icon_fastforward
+        ).map { (action, icon) ->
+            remoteActions.put(action, createRemoteAction(icon, action))
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun createRemoteAction(@DrawableRes iconId: Int, action: PIPAction): RemoteAction {
+        val intent = Intent(PIP_INTENT_ACTION).putExtra(PIP_INTENT_EXTRA, action.name)
+        val pendingIntent = PendingIntent.getBroadcast(
+            activity,
+            action.ordinal,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return RemoteAction(
+            Icon.createWithResource(context, iconId),
+            action.name,
+            action.name,
+            pendingIntent
+        )
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun remoteActionsFor(state: State): List<RemoteAction> = listOf(
+        remoteActions[REWIND],
+        when (state) {
+            State.PLAYING -> remoteActions[PAUSE]
+            else -> remoteActions[PLAY]
+        },
+        remoteActions[FAST_FORWARD]
+    ).mapNotNull { it }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean
+    ) {
+        if (isInPictureInPictureMode) {
+            core?.trigger(Event.DID_ENTER_PIP.value)
+            remoteActionReceiver = PIPRemoteActionReceiver()
+            requireActivity().registerReceiver(remoteActionReceiver, IntentFilter(PIP_INTENT_ACTION))
+        } else {
+            core?.trigger(Event.DID_EXIT_PIP.value)
+            requireActivity().unregisterReceiver(remoteActionReceiver)
+            remoteActionReceiver = null
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun updatePIPParameters() = requireActivity().setPictureInPictureParams(createPIPParameters())
+
+    private enum class PIPAction {
+        PLAY,
+        PAUSE,
+        REWIND,
+        FAST_FORWARD;
+
+        companion object {
+            const val PIP_INTENT_ACTION = "pip_media_control"
+            const val PIP_INTENT_EXTRA = "control_type"
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private inner class PIPRemoteActionReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent?) {
+            if (intent == null || PIP_INTENT_ACTION != intent.action) return
+
+            val action = PIPAction.valueOf(intent.getStringExtra(PIP_INTENT_EXTRA))
+            when (action) {
+                PLAY -> {
+                    play()
+                    updatePIPParameters()
+                }
+                PAUSE -> {
+                    pause()
+                    updatePIPParameters()
+                }
+                REWIND -> seek(max(0.0, position - SEEK_DEFAULT_JUMP_IN_SECONDS).toInt())
+                FAST_FORWARD -> seek(min(duration, position + SEEK_DEFAULT_JUMP_IN_SECONDS).toInt())
+            }
+        }
+    }
+
+    /**
+     * Player state
+     */
+    enum class State {
+        /**
+         * Player is uninitialized and not ready.
+         */
+        NONE,
+        /**
+         * Player is ready but no media is loaded.
+         */
+        IDLE,
+        /**
+         * Playing media.
+         */
+        PLAYING,
+        /**
+         * Media playback is paused.
+         */
+        PAUSED,
+        /**
+         * Media playback is stalling.
+         */
+        STALLING,
+        /**
+         * Player or Media error
+         */
+        ERROR
+    }
+
+    companion object {
+
+        private const val SEEK_DEFAULT_JUMP_IN_SECONDS = 10
+
+        init {
+            PluginConfig.register()
+            PlaybackConfig.register()
+        }
+
+        /**
+         * Initialize Player for the application. This method need to be called before any Player instantiation.
+         */
+        @JvmStatic
+        fun initialize(applicationContext: Context) {
+            BaseObject.applicationContext = applicationContext
+        }
     }
 }
